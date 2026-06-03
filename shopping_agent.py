@@ -43,4 +43,24 @@ def search_product (query: str, max_price : Optional[float] = None, is_organic :
         for row in rows
     ]
     return json.dumps(products)
-print(search_product("honey", max_price=10.0, is_organic=True))
+
+def product_checkout(product_id: int):
+    """Simulates a checkout process for a given product id and quantity.
+    Returns a JSON object with the following fields: product_id, quantity, total_price, and a message confirming the purchase."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT name, price FROM products WHERE id = ?", (product_id,))
+    result = cursor.fetchone()
+    if not result:
+        return f"error : Product with id {product_id} not found."
+    name = result[0]
+    price = result[1]
+    cursor.execute("INSERT INTO orders (product_id, product_name ,price) VALUES (?,?,?)", (product_id,name,price))
+    conn.commit()   
+    # Here you would normally handle payment processing and inventory management
+    conn.close()
+    return (f"Successfully purchased {name} for ${price:.2f}. Thank you for your purchase!",
+            f"Your order will arrive in 3-5 business days.")
+    
+    
+print(product_checkout(1))
