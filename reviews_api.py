@@ -2,8 +2,10 @@
 
 import sqlite3
 import os
-DB_PATH = os.path.join(os.path.dirname(__file__), 'store.db')
 
+from langchain.tools import tool
+DB_PATH = os.path.join(os.path.dirname(__file__), 'store.db')
+@tool
 def get_product_rating(product_id :int):
     """Fetches the average rating for a given product id from the 'reviews' table in store.db"""
     conn = sqlite3.connect(DB_PATH)
@@ -14,7 +16,7 @@ def get_product_rating(product_id :int):
     avg = round(result[0], 2) if result[0] is not None else 0.00  # No reviews found for the given product_id
     count = result[1] if result else 0  # No reviews found for the given product_id
     return {"product_id": product_id, "average_rating": avg, "review_count": count}
-
+@tool
 def get_products_ratings(product_ids: list):
     """Fetches the average ratings for a list of product ids from the 'reviews' table in store.db"""
     if not product_ids:
