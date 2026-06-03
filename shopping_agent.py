@@ -43,7 +43,7 @@ def search_product (query: str, max_price : Optional[float] = None, is_organic :
         for row in rows
     ]
     return json.dumps(products)
-
+@tool
 def product_checkout(product_id: int):
     """Simulates a checkout process for a given product id and quantity.
     Returns a JSON object with the following fields: product_id, quantity, total_price, and a message confirming the purchase."""
