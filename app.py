@@ -1,38 +1,76 @@
-import streamlit as st
+from typing import Optional
 
-from shopping_agent import agent
+from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
-
-st.set_page_config(page_title="Shopping AI Agent", page_icon="🛍️", layout="wide")
-
-
-def main() -> None:
-    st.title("Shopping AI Agent")
-    st.caption("Ask for product suggestions, ratings, and checkout help in a simple chat UI.")
-
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
-
-    prompt = st.chat_input("What would you like to shop for?")
-
-    if prompt:
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
-
-        with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
-                chat_history = st.session_state.messages + [{"role": "user", "content": prompt}]
-                result = agent.invoke({"messages": chat_history})
-                reply = result["messages"][-1].content
-            st.markdown(reply)
-
-        st.session_state.messages.append({"role": "assistant", "content": reply})
+from services.shopping_service import chat, checkout, image_search, search_products
 
 
-if __name__ == "__main__":
-    main()
+class ChatRequest(BaseModel):
+    message: str
+
+
+class SearchRequest(BaseModel):
+    query: str
+    max_price: Optional[float] = None
+    is_organic: Optional[bool] = None
+
+
+class CheckoutRequest(BaseModel):
+    product_id: int
+
+
+app = FastAPI(title="Shopping AI Agent API", version="1.0.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.get("/health")
+async def health() -> dict:
+    return {"status": "ok", "service": "shopping-ai-agent"}
+
+
+@app.get("/")
+async def root() -> dict:
+    return {
+        "message": "Shopping AI Agent FastAPI backend is running.",
+        "endpoints": ["/health", "/api/chat", "/api/products/search", "/api/checkout"],
+    }
+
+
+@app.post("/api/chat")
+async def chat_endpoint(request: ChatRequest) -> dict:
+    try:
+        return chat(request.message)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/api/products/search")
+async def search_products_endpoint(request: SearchRequest) -> dict:
+    try:
+        return search_products(request.query, request.max_price, request.is_organic)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/api/checkout")
+async def checkout_endpoint(request: CheckoutRequest) -> dict:
+    try:
+        return checkout(request.product_id)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/api/image-search")
+async def image_search_endpoint(image: UploadFile = File(...), caption: str = "") -> dict:
+    try:
+        return image_search(image.file, image.filename or "image.jpg", caption)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc

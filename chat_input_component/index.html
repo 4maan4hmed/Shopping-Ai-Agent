@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: transparent;
+            padding: 8px 2px 4px;
+        }
+
+        #bar {
+            display: flex;
+            align-items: flex-end;
+            gap: 0;
+            border: 1.5px solid #ccc;
+            border-radius: 12px;
+            background: #fff;
+            padding: 8px 8px 8px 12px;
+            transition: border-color 0.15s;
+            min-height: 52px;
+        }
+
+        #bar:focus-within {
+            border-color: #ff4b4b;
+        }
+
+        /* preview strip shown above the input when an image is attached */
+        #preview-wrap {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+            padding: 4px 6px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #555;
+        }
+
+        #preview-wrap.visible {
+            display: flex;
+        }
+
+        #preview-img {
+            width: 36px;
+            height: 36px;
+            object-fit: cover;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+        }
+
+        #preview-name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        #remove-img {
+            cursor: pointer;
+            font-size: 15px;
+            color: #999;
+            line-height: 1;
+            padding: 2px 4px;
+            border-radius: 4px;
+        }
+
+        #remove-img:hover {
+            color: #ff4b4b;
+            background: #ffe5e5;
+        }
+
+        /* the textarea grows with content */
+        #txt {
+            flex: 1;
+            border: none;
+            outline: none;
+            resize: none;
+            font-size: 15px;
+            line-height: 1.5;
+            background: transparent;
+            color: #111;
+            min-height: 26px;
+            max-height: 160px;
+            overflow-y: auto;
+            align-self: center;
+        }
+
+        /* icon button shared style */
+        .icon-btn {
+            flex-shrink: 0;
+            width: 34px;
+            height: 34px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            color: #888;
+            font-size: 18px;
+            transition: background 0.12s, color 0.12s;
+            margin-left: 4px;
+        }
+
+        .icon-btn:hover {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        #send-btn {
+            background: #ff4b4b;
+            color: #fff;
+        }
+
+        #send-btn:hover {
+            background: #e03e3e;
+            color: #fff;
+        }
+
+        #send-btn:disabled {
+            background: #eee;
+            color: #bbb;
+            cursor: default;
+        }
+
+        /* hidden real file input */
+        #file-input {
+            display: none;
+        }
+
+        /* dark mode */
+        @media (prefers-color-scheme: dark) {
+            #bar {
+                background: #1e1e1e;
+                border-color: #444;
+            }
+
+            #bar:focus-within {
+                border-color: #ff4b4b;
+            }
+
+            #txt {
+                color: #f0f0f0;
+            }
+
+            .icon-btn {
+                color: #aaa;
+            }
+
+            .icon-btn:hover {
+                background: #2a2a2a;
+                color: #eee;
+            }
+
+            #preview-wrap {
+                background: #2a2a2a;
+                color: #bbb;
+            }
+
+            #preview-img {
+                border-color: #555;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="preview-wrap">
+        <img id="preview-img" src="" alt="preview" />
+        <span id="preview-name"></span>
+        <span id="remove-img" title="Remove image">✕</span>
+    </div>
+
+    <div id="bar">
+        <textarea id="txt" rows="1" placeholder="What would you like to shop for?"></textarea>
+
+        <!-- image attach -->
+        <button class="icon-btn" id="attach-btn" title="Attach image" type="button">📷</button>
+        <input id="file-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif" />
+
+        <!-- send -->
+        <button class="icon-btn" id="send-btn" title="Send" type="button" disabled>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M2 21l21-9L2 3v7l15 2-15 2v7z" />
+            </svg>
+        </button>
+    </div>
+
+    <script>
+        const txt = document.getElementById("txt");
+        const sendBtn = document.getElementById("send-btn");
+        const attachBtn = document.getElementById("attach-btn");
+        const fileInput = document.getElementById("file-input");
+        const previewWrap = document.getElementById("preview-wrap");
+        const previewImg = document.getElementById("preview-img");
+        const previewName = document.getElementById("preview-name");
+        const removeImg = document.getElementById("remove-img");
+
+        let imageB64 = null;   // base64 string (no prefix)
+        let imageMime = null;
+        let imageName = null;
+
+        // ── auto-grow textarea ──────────────────────────────────────────────
+        txt.addEventListener("input", () => {
+            txt.style.height = "auto";
+            txt.style.height = Math.min(txt.scrollHeight, 160) + "px";
+            syncSendBtn();
+        });
+
+        // ── enable/disable send ─────────────────────────────────────────────
+        function syncSendBtn() {
+            sendBtn.disabled = txt.value.trim() === "" && imageB64 === null;
+        }
+
+        // ── attach image ────────────────────────────────────────────────────
+        attachBtn.addEventListener("click", () => fileInput.click());
+
+        fileInput.addEventListener("change", () => {
+            const file = fileInput.files[0];
+            if (!file) return;
+            imageMime = file.type;
+            imageName = file.name;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                imageB64 = e.target.result.split(",")[1];   // strip data:…;base64,
+                previewImg.src = e.target.result;
+                previewName.textContent = file.name;
+                previewWrap.classList.add("visible");
+                syncSendBtn();
+            };
+            reader.readAsDataURL(file);
+            fileInput.value = "";   // allow re-selecting same file
+        });
+
+        // ── remove image ────────────────────────────────────────────────────
+        removeImg.addEventListener("click", () => {
+            imageB64 = null;
+            imageMime = null;
+            imageName = null;
+            previewImg.src = "";
+            previewWrap.classList.remove("visible");
+            syncSendBtn();
+        });
+
+        // ── send ─────────────────────────────────────────────────────────────
+        function doSend() {
+            const text = txt.value.trim();
+            if (!text && !imageB64) return;
+
+            Streamlit.setComponentValue({
+                text: text || "",
+                image_b64: imageB64 || null,
+                image_mime: imageMime || null,
+                image_name: imageName || null,
+                _ts: Date.now(),          // force re-trigger even for identical text
+            });
+
+            // reset
+            txt.value = "";
+            txt.style.height = "auto";
+            imageB64 = null;
+            imageMime = null;
+            imageName = null;
+            previewImg.src = "";
+            previewWrap.classList.remove("visible");
+            syncSendBtn();
+        }
+
+        sendBtn.addEventListener("click", doSend);
+
+        txt.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                doSend();
+            }
+        });
+
+        // ── tell Streamlit our height ────────────────────────────────────────
+        Streamlit.setFrameHeight();
+        new ResizeObserver(() => Streamlit.setFrameHeight())
+            .observe(document.body);
+    </script>
+</body>
+
+</html>
