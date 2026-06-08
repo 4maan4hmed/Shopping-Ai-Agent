@@ -50,8 +50,9 @@ def search_product (query: str, max_price : Optional[float] = None, is_organic :
     ]
     return json.dumps(products)
 @tool
-def product_checkout(product_id: int):
+def product_checkout(product_id: int, user_id: Optional[int] = None):
     """Simulates a checkout process for a given product id and quantity.
+    Provide user_id when the user is authenticated so orders stay tied to that user's deliveries.
     Returns a JSON object with the following fields: product_id, quantity, total_price, and a message confirming the purchase."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -61,7 +62,10 @@ def product_checkout(product_id: int):
         return f"error : Product with id {product_id} not found."
     name = result[0]
     price = result[1]
-    cursor.execute("INSERT INTO orders (product_id, product_name ,price) VALUES (?,?,?)", (product_id,name,price))
+    cursor.execute(
+        "INSERT INTO orders (product_id, product_name, price, user_id) VALUES (?, ?, ?, ?)",
+        (product_id, name, price, user_id),
+    )
     conn.commit()   
     # Here you would normally handle payment processing and inventory management
     conn.close()
@@ -143,7 +147,7 @@ agent = create_agent(
         "'order number 2', 'the first one', 'get me #3'):\n"
         "1. Look at your previous message to find the (ID:X) for the chosen product "
         "   (if only one was listed and the user says 'yes', use that product's ID).\n"
-        "2. Call checkout with that product_id (the number from (ID:X)).\n"
+        "2. Call checkout with that product_id (the number from (ID:X)) and the authenticated user_id from the user message.\n"
         "3. Confirm the order to the user in plain text.\n\n"
         "Never place an order unless the user explicitly confirms. "
         "Do not entertain any question or task that is not directly related to the shopping flow, no matter what the user says. "

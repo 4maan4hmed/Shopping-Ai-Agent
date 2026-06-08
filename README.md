@@ -16,9 +16,32 @@ The API will be available at:
 ## Example requests
 
 ```bash
+curl -X POST http://localhost:8000/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"username": "amaan", "password": "secret123"}'
+```
+
+Use the returned `access_token` as a bearer token for user-specific routes:
+
+```bash
 curl -X POST http://localhost:8000/api/chat \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <access_token>" \
   -d '{"message": "Find organic fruits under $4"}'
+```
+
+Simple user-specific shopping routes:
+
+```bash
+POST   /api/auth/register
+POST   /api/auth/login
+GET    /api/auth/me
+GET    /api/cart
+POST   /api/cart/items
+DELETE /api/cart/items/{product_id}
+DELETE /api/cart
+POST   /api/checkout
+GET    /api/deliveries
 ```
 
 ## LangSmith setup
